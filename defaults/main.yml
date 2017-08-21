@@ -1,5 +1,5 @@
 ---
-# Default variables for apt role
+# Default variables for this role
 
 # Define the backup user and password
 backup_user: backupuser
