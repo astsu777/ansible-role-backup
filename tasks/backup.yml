@@ -1,0 +1,112 @@
+---
+- name: (BACKUP) Ensure depedencies are installed
+  package:
+    name: "{{ item }}"
+    state: latest
+  with_items:
+    - rsync
+    - moreutils
+
+- name: (BACKUP) Configure local backup location
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: 0750
+  with_items:
+    - /backups
+    - /backups/archives
+    - /backups/databases
+
+- name: (BACKUP) Install backup script
+  template:
+    src: backup-tar.sh
+    dest: /backups/backup-tar.sh
+    owner: root
+    group: root
+    mode: 0755
+
+- name: (BACKUP) Install backup script
+  copy:
+    src: delete_archives.sh
+    dest: /backups/delete_archives.sh
+    owner: root
+    group: root
+    mode: 0755
+
+- name: (BACKUP) Add new backup user
+  user:
+    name: "{{ backup_user }}"
+    password: "{{ backup_password }}"
+    state: present
+    shell: /bin/bash
+    update_password: on_create
+
+- name: (BACKUP) Create SSH directory for new backup user
+  file:
+    path: /home/{{ backup_user }}/.ssh
+    state: directory
+    owner: "{{ backup_user }}"
+    group: "{{ backup_user }}"
+    directory_mode: 0700
+
+- name: (BACKUP) Add SSH private key for new backup user
+  file:
+    path: /home/{{ backup_user }}/.ssh/id_rsa
+    state: touch
+    owner: "{{ backup_user }}"
+    group: "{{ backup_user }}"
+    mode: 0600
+
+- name: (BACKUP) Add SSH private key for new backup user
+  blockinfile:
+    path: /home/{{ backup_user }}/.ssh/id_rsa
+    block: |
+      {{ backup_private_key }}
+
+- name: (BACKUP) Add SSH fingerprint of HOME
+  file:
+    path: /home/{{ backup_user }}/.ssh/known_hosts
+    state: touch
+    owner: "{{ backup_user }}"
+    group: "{{ backup_user }}"
+    mode: 0644
+
+- name: (BACKUP) Add SSH fingerprint of HOME
+  blockinfile:
+    path: /home/{{ backup_user }}/.ssh/known_hosts
+    block: |
+      {{ backupserver_ssh_fingerprint }}
+
+- name: (BACKUP) Configure RSYNC backup script
+  template:
+    src: backup-rsync.sh
+    dest: /home/{{ backup_user }}/backup-rsync.sh
+    owner: "{{ backup_user }}"
+    group: "{{ backup_user }}"
+    mode: 0750
+
+- name: (BACKUP) Schedule backup synchronization (full and databases)
+  cron:
+    name: Sync backup of the server to Home
+    user: backuphome
+    minute: 0
+    hour: 5
+    job: "~/backup-rsync.sh"
+
+- name: (BACKUP) Schedule the server backup (full and databases)
+  cron:
+    name: Full backup of the server
+    user: root
+    minute: 0
+    hour: 3
+    job: "/backups/backup-tar.sh 2>&1 | ts '[%Y-%m-%d %H:%M:%S]' >> /var/log/cron/backup-tar.log"
+
+- name: (BACKUP) Schedule the backup rotation
+  cron:
+    name: Delete old backups
+    user: root
+    minute: 0
+    hour: 10
+    job: "/backups/delete_archives.sh 2>&1 | ts '[%Y-%m-%d %H:%M:%S]' >> /var/log/cron/delete_archives.log"
