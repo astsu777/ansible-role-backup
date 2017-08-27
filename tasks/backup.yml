@@ -50,6 +50,7 @@
     owner: "{{ backup_user }}"
     group: "{{ backup_user }}"
     directory_mode: 0700
+  register: sshdir
 
 - name: (BACKUP) Add SSH private key for new backup user
   file:
@@ -58,12 +59,14 @@
     owner: "{{ backup_user }}"
     group: "{{ backup_user }}"
     mode: 0600
+  when: sshdir|changed
 
 - name: (BACKUP) Add SSH private key for new backup user
   blockinfile:
     path: /home/{{ backup_user }}/.ssh/id_rsa
     block: |
       {{ backup_private_key }}
+  when: sshdir|changed
 
 - name: (BACKUP) Add SSH fingerprint of HOME
   file:
@@ -72,12 +75,14 @@
     owner: "{{ backup_user }}"
     group: "{{ backup_user }}"
     mode: 0644
+  when: sshdir|changed
 
 - name: (BACKUP) Add SSH fingerprint of HOME
   blockinfile:
     path: /home/{{ backup_user }}/.ssh/known_hosts
     block: |
       {{ backupserver_ssh_fingerprint }}
+  when: sshdir|changed
 
 - name: (BACKUP) Configure RSYNC backup script
   template:
