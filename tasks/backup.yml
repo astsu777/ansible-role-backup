@@ -59,14 +59,14 @@
     owner: "{{ backup_user }}"
     group: "{{ backup_user }}"
     mode: 0600
-  when: sshdir|changed
+  when: sshdir is changed
 
 - name: (BACKUP) Add SSH private key for new backup user
   blockinfile:
     path: /home/{{ backup_user }}/.ssh/id_rsa
     block: |
       {{ backup_private_key }}
-  when: sshdir|changed
+  when: sshdir is changed
 
 - name: (BACKUP) Add SSH fingerprint of HOME
   file:
@@ -75,14 +75,14 @@
     owner: "{{ backup_user }}"
     group: "{{ backup_user }}"
     mode: 0644
-  when: sshdir|changed
+  when: sshdir is changed
 
 - name: (BACKUP) Add SSH fingerprint of HOME
   blockinfile:
     path: /home/{{ backup_user }}/.ssh/known_hosts
     block: |
       {{ backupserver_ssh_fingerprint }}
-  when: sshdir|changed
+  when: sshdir is changed
 
 - name: (BACKUP) Configure RSYNC backup script
   template:
@@ -106,7 +106,7 @@
     user: root
     minute: 0
     hour: 3
-    job: "/backups/backup-tar.sh 2>&1 | ts '[%Y-%m-%d %H:%M:%S]' >> /var/log/cron/backup-tar.log"
+    job: "/backups/backup-tar.sh 2>&1 | ts '[%Y-%m-%d %H:%M:%S]' >> /var/log/cronjobs/backup-tar.log"
 
 - name: (BACKUP) Schedule the backup rotation
   cron:
@@ -114,4 +114,4 @@
     user: root
     minute: 0
     hour: 10
-    job: "/backups/delete_archives.sh 2>&1 | ts '[%Y-%m-%d %H:%M:%S]' >> /var/log/cron/delete_archives.log"
+    job: "/backups/delete_archives.sh 2>&1 | ts '[%Y-%m-%d %H:%M:%S]' >> /var/log/cronjobs/delete_archives.log"
